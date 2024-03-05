@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/supabase-community/supabase-go"
 
 	"hippias/internal/database"
 )
@@ -16,6 +17,7 @@ type Server struct {
 	port int
 
 	db database.Service
+	sb *supabase.Client
 }
 
 func NewServer() *http.Server {

@@ -17,6 +17,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		s.healthHandler(w, r)
 	})
 	r.GET("/item/:name", s.getItem)
+	r.GET("/list", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		s.list(w, r, nil)
+	})
 	return r
 }
 
@@ -43,7 +46,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getItem(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	name := ps.ByName("name")
+	name := ps.ByName("id")
 
 	resp := map[string]string{
 		"title":            name,
@@ -61,4 +64,30 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	}
 
 	_, _ = w.Write(jsonResp)
+}
+
+func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	data, _, err := s.sb.From("Books").Select("*", "exact", false).Execute()
+	log.Printf("Data: %v", len(data), err)
+	if err != nil {
+		log.Printf("Error querying books: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error marshaling JSON: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	_, err = w.Write(jsonData)
+	if err != nil {
+		log.Printf("Error writing response: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }

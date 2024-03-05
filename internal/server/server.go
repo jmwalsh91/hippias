@@ -21,18 +21,19 @@ type Server struct {
 }
 
 func NewServer() *http.Server {
+	API_URL := os.Getenv("API_URL")
+	API_KEY := os.Getenv("API_KEY")
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	client, err := supabase.NewClient(API_URL, API_KEY, nil)
+	if err != nil {
+		fmt.Println("cannot initialize client", err)
+	}
+
 	NewServer := &Server{
 		port: port,
 
 		db: database.New(),
-	}
-	API_URL := os.Getenv("API_URL")
-	API_KEY := os.Getenv("API_KEY")
-
-	client, err := supabase.NewClient(API_URL, API_KEY, nil)
-	if err != nil {
-		fmt.Println("cannot initialize client", err)
+		sb: client,
 	}
 
 	// Declare Server config

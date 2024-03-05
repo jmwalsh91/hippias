@@ -27,6 +27,13 @@ func NewServer() *http.Server {
 
 		db: database.New(),
 	}
+	API_URL := os.Getenv("API_URL")
+	API_KEY := os.Getenv("API_KEY")
+
+	client, err := supabase.NewClient(API_URL, API_KEY, nil)
+	if err != nil {
+		fmt.Println("cannot initialize client", err)
+	}
 
 	// Declare Server config
 	server := &http.Server{

@@ -46,7 +46,9 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	name := ps.ByName("name")
 
 	resp := map[string]string{
-		"item": name,
+		"title":            name,
+		"Author":           "Jean Baudrillard",
+		"Publication Year": "1981",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

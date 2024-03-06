@@ -11,13 +11,16 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := httprouter.New()
 	r.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.HelloWorldHandler(w, r)
 	})
 	r.GET("/health", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.healthHandler(w, r)
 	})
 	r.GET("/item/:name", s.getItem)
 	r.GET("/list", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.list(w, r, nil)
 	})
 	return r
@@ -68,7 +71,7 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request, ps httprouter.P
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	data, _, err := s.sb.From("Books").Select("*", "exact", false).Execute()
-	log.Printf("Data: %v", len(data), err)
+
 	if err != nil {
 		log.Printf("Error querying books: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,6 +79,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	}
 
 	jsonData, err := json.Marshal(data)
+	log.Printf("Data: %v", jsonData, err)
 	if err != nil {
 		log.Printf("Error marshaling JSON: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -23,6 +23,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.list(w, r, nil)
 	})
+	r.GET("/authors", s.listAuthors)
+	r.GET("/authors/:id", s.getAuthor)
 	return r
 }
 
@@ -54,6 +56,14 @@ type Book = struct {
 	author      string
 	description string
 	authorId    int
+	tags        []string
+}
+
+type Author = struct {
+	id          int
+	name        string
+	nationality string
+	description string
 }
 
 func (s *Server) getBook(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -78,6 +88,47 @@ func (s *Server) getBook(w http.ResponseWriter, r *http.Request, ps httprouter.P
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(book)
+}
+
+func (s *Server) listAuthors(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	data, _, err := s.sb.From("authors").Select("*", "exact", false).Execute()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var authors []Author
+	if err := json.Unmarshal(data, &authors); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(authors)
+}
+
+func (s *Server) getAuthor(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	authorID := ps.ByName("id")
+
+	data, _, err := s.sb.From("authors").
+		Select("*", "exact", false).
+		Eq("id", authorID).
+		Single().
+		Execute()
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var author Author
+	if err := json.Unmarshal(data, &author); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(author)
 }
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

@@ -18,7 +18,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.healthHandler(w, r)
 	})
-	r.GET("/item/:name", s.getItem)
+	r.GET("/book/id", s.getBook)
 	r.GET("/list", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.list(w, r, nil)
@@ -48,25 +48,36 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(jsonResp)
 }
 
-func (s *Server) getItem(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	name := ps.ByName("id")
+type Book = struct {
+	id          int
+	title       string
+	author      string
+	description string
+	authorId    int
+}
 
-	resp := map[string]string{
-		"title":            name,
-		"Author":           "Jean Baudrillard",
-		"Publication Year": "1981",
-	}
+func (s *Server) getBook(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	bookID := ps.ByName("id")
 
-	w.Header().Set("Content-Type", "application/json")
+	data, _, err := s.sb.From("books").
+		Select("*", "1", false).
+		Eq("id", bookID).
+		Single().
+		Execute()
 
-	jsonResp, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("Error handling JSON marshal. Err: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, _ = w.Write(jsonResp)
+	var book Book
+	if err := json.Unmarshal(data, &book); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(book)
 }
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

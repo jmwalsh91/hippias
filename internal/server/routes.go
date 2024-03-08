@@ -10,22 +10,13 @@ import (
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := httprouter.New()
-	r.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	r.GET("/book/id", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		s.HelloWorldHandler(w, r)
+		s.getBook(w, r, nil)
 	})
-	r.GET("/health", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		s.healthHandler(w, r)
-	})
-	r.GET("/book/id", s.getBook)
 	r.GET("/list", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		s.list(w, r, nil)
-	})
-	r.GET("/books/author/:id", func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		s.getBooksByAuthorID(w, r, ps)
+		s.listBooks(w, r, nil)
 	})
 	r.GET("/authors", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -34,40 +25,21 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/authors/:id", func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		s.getAuthor(w, r, ps)
-
+	})
+	r.GET("/books/author/:id", func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		s.getBooksByAuthorID(w, r, ps)
 	})
 	return r
 }
 
-func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("error handling JSON marshal. Err: %v", err)
-	}
-
-	_, _ = w.Write(jsonResp)
-}
-
-func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, err := json.Marshal(s.db.Health())
-
-	if err != nil {
-		log.Fatalf("error handling JSON marshal. Err: %v", err)
-	}
-
-	_, _ = w.Write(jsonResp)
-}
-
 type Book = struct {
-	id          int
-	title       string
-	author      string
-	description string
-	authorId    int
-	tags        []string
+	Id          int      `json:"id"`
+	Title       string   `json:"title"`
+	Author      string   `json:"author"`
+	Description string   `json:"description"`
+	AuthorId    int      `json:"authorId"`
+	Tags        []string `json:"tags"`
 }
 
 type Author struct {
@@ -100,7 +72,6 @@ func (s *Server) getBook(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(book)
 }
-
 func (s *Server) getBooksByAuthorID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	authorID := ps.ByName("id")
 	log.Printf("Author ID: %v", authorID)
@@ -112,7 +83,7 @@ func (s *Server) getBooksByAuthorID(w http.ResponseWriter, r *http.Request, ps h
 
 	data, _, err := s.sb.From("books").
 		Select("*", "exact", false).
-		Eq("author_id", authorID).
+		Eq("authorId", authorID).
 		Execute()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -124,18 +95,17 @@ func (s *Server) getBooksByAuthorID(w http.ResponseWriter, r *http.Request, ps h
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Books: %v", books)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(books)
 }
-
 func (s *Server) listAuthors(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	data, _, err := s.sb.From("authors").Select("*", "exact", false).Execute()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Data: %v", data)
 
 	var authors []Author
 	if err := json.Unmarshal(data, &authors); err != nil {
@@ -170,9 +140,8 @@ func (s *Server) getAuthor(w http.ResponseWriter, r *http.Request, ps httprouter
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(author)
 }
-
-func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	data, _, err := s.sb.From("Books").Select("*", "exact", false).Execute()
+func (s *Server) listBooks(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	data, _, err := s.sb.From("books").Select("*", "exact", false).Execute()
 
 	if err != nil {
 		log.Printf("Error querying books: %v", err)
@@ -180,20 +149,15 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 		return
 	}
 
-	jsonData, err := json.Marshal(data)
-	log.Printf("Data: %v", jsonData, err)
-	if err != nil {
-		log.Printf("Error marshaling JSON: %v", err)
+	var books []Book
+	if err := json.Unmarshal(data, &books); err != nil {
+		log.Printf("Error unmarshaling books: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Books: %+v", books)
 
 	w.Header().Set("Content-Type", "application/json")
-
-	_, err = w.Write(jsonData)
-	if err != nil {
-		log.Printf("Error writing response: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	json.NewEncoder(w).Encode(books)
 }
